@@ -3,7 +3,7 @@ use dirs::home_dir;
 use starbase_styles::color;
 use starbase_utils::fs;
 use std::{
-    env,
+    env::{self, join_paths},
     io::{self, BufRead},
     path::PathBuf,
 };
@@ -27,7 +27,7 @@ pub fn find_profiles(shell: &Shell) -> miette::Result<Vec<PathBuf>> {
     }
 
     let home_dir = home_dir().expect("Invalid home directory.");
-    let mut profiles = vec![home_dir.join(".profile")];
+    let mut profiles = vec![];
 
     if let Ok(profile_env) = env::var("PROFILE") {
         if !profile_env.is_empty() {
@@ -37,7 +37,11 @@ pub fn find_profiles(shell: &Shell) -> miette::Result<Vec<PathBuf>> {
 
     match shell {
         Shell::Bash => {
-            profiles.extend([home_dir.join(".bash_profile"), home_dir.join(".bashrc")]);
+            profiles.extend([
+                home_dir.join(".profile"),
+                home_dir.join(".bash_profile"),
+                home_dir.join(".bashrc"),
+            ]);
         }
         Shell::Elvish => {
             profiles.push(home_dir.join(".elvish/rc.elv"));
@@ -64,10 +68,37 @@ pub fn find_profiles(shell: &Shell) -> miette::Result<Vec<PathBuf>> {
 
             profiles.extend([zdot_dir.join(".zprofile"), zdot_dir.join(".zshrc")]);
         }
-        _ => {}
+        Shell::PowerShell => {
+            if cfg!(windows) {
+                profiles.push(home_dir.join("Documents/PowerShell/Profile.ps1"))
+            } else {
+                profiles.push(home_dir.join(".config/powershell/profile.ps1"));
+                if let Ok(xdg_config) = env::var("XDG_CONFIG_HOME") {
+                    profiles.push(PathBuf::from(xdg_config).join("powershell/profile.ps1"));
+                }
+            }
+        }
+        _ => profiles.push(home_dir.join(".profile")),
     };
 
     Ok(profiles)
+}
+
+pub fn format_prepend_path(shell: &Shell, values: &[&str]) -> String {
+    
+    match shell {
+        Shell::Bash => {
+            let newpath = join_paths(values.iter().chain(&[&"$PATH"]));
+            format!(r#"export PATH="{}""#, newpath.unwrap())},
+        Shell::Elvish => format!(
+            r#"set-env PATH (str:join ':' [{} $E:PATH])"#,
+            values.join(" ")
+        ),
+        Shell::Fish => format!(r#"fish_add_path -g {}"#, values.join(" ")),
+        Shell::PowerShell => format!(r#"$env:PATH = {}"#, values.join(" + [System.IO.Path]::PathSeparator + "))
+        Shell::Zsh => todo!(),
+        _ => todo!(),
+    }
 }
 
 pub fn format_env_var(shell: &Shell, key: &str, value: &str) -> Option<String> {
@@ -86,6 +117,11 @@ pub fn format_env_var(shell: &Shell, key: &str, value: &str) -> Option<String> {
             format!(r#"set -gx PATH "{value}" $PATH"#)
         } else {
             format!(r#"set -gx {key} "{value}""#)
+        }),
+        Shell::PowerShell => Some(if key == "PATH" {
+            format!(r#"$env:PATH = "{value}" + [System.IO.Path]::PathSeparator + $env:PATH"#)
+        } else {
+            format!(r#"${key} = "{value}"; $env:{key}=${key}"#)
         }),
         _ => None,
     }
