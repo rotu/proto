@@ -25,10 +25,10 @@ jobs:
           cache: false
       - run: |
           cd plugins;
-          cargo wasi build -p proto_wasm_test -Z timings;
-        # Windows runs out of disk space
+          cargo wasi build -p proto_wasm_test --timings;
       - if: ${{ runner.os == 'Windows' }}
         run: node ../.github/actions/delete-target-files.js;
+        # Windows runs out of disk space
       - run: cargo nextest run --workspace --exclude proto_pdk --profile ci --config-file ./.cargo/nextest.toml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -41,8 +41,10 @@ jobs:
           CARGO_PROFILE_RELEASE_DEBUG: true
       - uses: actions/upload-artifact@v3
         with:
-          name: flamegraph
-          path: flamegraph.svg
+          name: perf
+          path: |
+            flamegraph.svg
+            target/cargo-timings
       - run: cargo run -- install node
         env:
           PROTO_HOME: "/tmp/proto_test"
@@ -50,5 +52,5 @@ jobs:
         with:
           name: proto-node-files
           path: |
-            /tmp/proto_test/bin
-            /tmp/proto_test/shims
+            /tmp/proto_test/bin/*
+            /tmp/proto_test/shims/*
