@@ -21,28 +21,34 @@ jobs:
       - uses: moonrepo/setup-toolchain@v0
       - uses: moonrepo/setup-rust@v1
         with:
-          bins: cargo-wasi, cargo-nextest
+          bins: cargo-wasi, cargo-nextest, flamegraph
           cache: false
-      - if: ${{ runner.os != 'Windows' }}
-        run: cd plugins && cargo wasi build -p proto_wasm_test
+      - run: |
+          cd plugins;
+          cargo wasi build -p proto_wasm_test -Z timings;
         # Windows runs out of disk space
       - if: ${{ runner.os == 'Windows' }}
-        run: |
-          cd plugins;
-          cargo wasi build -p proto_wasm_test;
-          node ../.github/actions/delete-target-files.js;
+        run: node ../.github/actions/delete-target-files.js;
       - run: cargo nextest run --workspace --exclude proto_pdk --profile ci --config-file ./.cargo/nextest.toml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PROTO_DEBUG_COMMAND: 1
           RUST_BACKTRACE: 1
           WASMTIME_BACKTRACE_DETAILS: 1
+      - run:
+          cargo flamegraph --test "*"   
+        env:
+          CARGO_PROFILE_RELEASE_DEBUG: true
+      - uses: actions/upload-artifact@v3
+        with:
+          name: flamegraph
+          path: flamegraph.svg
       - run: cargo run -- install node
         env:
           PROTO_HOME: "/tmp/proto_test"
       - uses: actions/upload-artifact@v3
         with:
-          name: proto-bin-shim
+          name: proto-node-files
           path: |
             /tmp/proto_test/bin
             /tmp/proto_test/shims
