@@ -21,7 +21,7 @@ jobs:
       - uses: moonrepo/setup-toolchain@v0
       - uses: moonrepo/setup-rust@v1
         with:
-          bins: cargo-wasi, cargo-nextest, flamegraph
+          bins: cargo-wasi, cargo-nextest
           cache: false
       - run: |
           cd plugins;
@@ -35,15 +35,10 @@ jobs:
           PROTO_DEBUG_COMMAND: 1
           RUST_BACKTRACE: 1
           WASMTIME_BACKTRACE_DETAILS: 1
-      - run:
-          cargo flamegraph --test "*"   
-        env:
-          CARGO_PROFILE_RELEASE_DEBUG: true
       - uses: actions/upload-artifact@v3
         with:
           name: perf
           path: |
-            flamegraph.svg
             target/cargo-timings
       - run: cargo run -- install node
         env:
