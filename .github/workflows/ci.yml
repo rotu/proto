@@ -50,7 +50,7 @@ jobs:
           PROTO_HOME: "/tmp/proto_test"
       - uses: actions/upload-artifact@v3
         with:
-          name: proto-node-files
+          name: nodebins-${{ runner.os }}
           path: |
             /tmp/proto_test/bin/*
             /tmp/proto_test/shims/*
