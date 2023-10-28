@@ -39,6 +39,12 @@ jobs:
           PROTO_DEBUG_COMMAND: 1
           RUST_BACKTRACE: 1
           WASMTIME_BACKTRACE_DETAILS: 1
-      - run: cargo run -- --help
-      - run: cargo run -- list-remote node
-      - run: cargo run -- list-remote wasm-test
+      - run: cargo run -- install node
+        env:
+          PROTO_HOME: "/tmp/proto_test"
+      - uses: actions/upload-artifact@v3
+        with:
+          name: proto-bin-shim
+          path: |
+            /tmp/proto_test/bin
+            /tmp/proto_test/shims
