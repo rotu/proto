@@ -32,6 +32,7 @@ jobs:
       - run: |
           cargo run -- run node latest -- -p process.execPath
           cargo run -- run npm latest -- --version
+          cargo run -- run npm latest -- set editor="code -w"
         env:
           PROTO_HOME: "/tmp/proto_test"
           PROTO_LOG: debug
