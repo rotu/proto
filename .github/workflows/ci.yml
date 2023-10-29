@@ -30,13 +30,12 @@ jobs:
         run: node .github/actions/delete-target-files.js;
         # Windows runs out of disk space
       - run: |
-          cargo run -- install node
-          cargo run -- install npm
-          cargo run -- run node -- --version
+          cargo run -- run node -- -p process.execPath
           cargo run -- run npm -- --version
         env:
           PROTO_HOME: "/tmp/proto_test"
           PROTO_LOG: debug
+          PROTO_AUTO_INSTALL: true
           PROTO_DEBUG_COMMAND: 1
       - uses: actions/upload-artifact@v3
         if: always()
