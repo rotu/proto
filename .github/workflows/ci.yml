@@ -34,7 +34,7 @@ jobs:
           cargo run -- run npm -- --version
         env:
           PROTO_HOME: "/tmp/proto_test"
-          PROTO_LOG: trace
+          PROTO_LOG: debug
           PROTO_DEBUG_COMMAND: 1
       - uses: actions/upload-artifact@v3
         if: always()
