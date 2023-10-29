@@ -30,8 +30,8 @@ jobs:
         run: node .github/actions/delete-target-files.js;
         # Windows runs out of disk space
       - run: |
-          cargo run -- run node -- -p process.execPath
-          cargo run -- run npm -- --version
+          cargo run -- run node latest -- -p process.execPath
+          cargo run -- run npm latest -- --version
         env:
           PROTO_HOME: "/tmp/proto_test"
           PROTO_LOG: debug
