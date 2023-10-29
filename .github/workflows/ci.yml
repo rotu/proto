@@ -31,7 +31,7 @@ jobs:
         # Windows runs out of disk space
       - run: |
           cargo run -- install node
-          cargo run -- proto run npm -- --version
+          cargo run -- run npm -- --version
         env:
           PROTO_HOME: "/tmp/proto_test"
           PROTO_LOG: trace
