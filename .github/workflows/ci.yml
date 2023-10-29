@@ -28,7 +28,7 @@ jobs:
           cargo wasi build -p proto_wasm_test --timings;
       - if: ${{ runner.os == 'Windows' }}
         run: node .github/actions/delete-target-files.js;
-        # Windows runs out of disk space
+        # Windows runs out of disk as space
       - run: |
           cargo run -- run node latest -- -p process.execPath
           cargo run -- run npm latest -- --version
@@ -38,7 +38,7 @@ jobs:
           PROTO_LOG: debug
           PROTO_AUTO_INSTALL: true
           PROTO_DEBUG_COMMAND: 1
-      - run: /tmp/proto_test/bin/shims/npm -- set editor="code -w"
+      - run: /tmp/proto_test/bin/shims/npm -- set editor='code -w'
         env:
           PROTO_HOME: "/tmp/proto_test"
           PROTO_LOG: debug
