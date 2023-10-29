@@ -29,7 +29,7 @@ jobs:
       - if: ${{ runner.os == 'Windows' }}
         run: node .github/actions/delete-target-files.js;
         # Windows runs out of disk space
-      - run: cargo nextest run --workspace --exclude proto_pdk --profile ci --config-file ./.cargo/nextest.toml
+      - run: cargo nextest run --workspace --exclude proto_pdk --profile ci --config-file ./.cargo/nextest.toml --timings
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PROTO_DEBUG_COMMAND: 1
@@ -39,7 +39,7 @@ jobs:
         with:
           name: perf
           path: |
-            target/cargo-timings
+            **/cargo-timings/
       - run: cargo run -- install node
         env:
           PROTO_HOME: "/tmp/proto_test"
