@@ -38,6 +38,12 @@ jobs:
           PROTO_LOG: debug
           PROTO_AUTO_INSTALL: true
           PROTO_DEBUG_COMMAND: 1
+      - run: /tmp/proto_test/bin/shims/npm -- set editor="code -w"
+        env:
+          PROTO_HOME: "/tmp/proto_test"
+          PROTO_LOG: debug
+          PROTO_AUTO_INSTALL: true
+          PROTO_DEBUG_COMMAND: 1
       - uses: actions/upload-artifact@v3
         if: always()
         with:
