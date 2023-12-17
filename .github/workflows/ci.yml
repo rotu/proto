@@ -111,11 +111,10 @@ jobs:
           targets: ${{ matrix.target }}
       - run:
           cargo install --root artifacts --path ./crates/cli
-      - uses: ctions/cache/save@v3
+      - uses: actions/cache/save@v3
         with:
-          name: ${{ matrix.target }}
+          key: ${{ matrix.target }}
           path: artifacts
-          retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}
