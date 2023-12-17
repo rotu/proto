@@ -10,6 +10,121 @@
 - [Rust](https://github.com/moonrepo/rust-plugin/blob/master/CHANGELOG.md)
 - [TOML schema](https://github.com/moonrepo/schema-plugin/blob/master/CHANGELOG.md)
 
+## 0.25.3
+
+#### 🚀 Updates
+
+- Added `--include-global` to `proto outdated` to include versions from `~/.proto/.prototools`.
+- Added `--only-local` to `proto outdated` to only checks versions from `.prototools` in current directory.
+- Improved the messaging of `proto outdated`.
+
+#### 🐞 Fixes
+
+- Fixed `proto outdated` checking global versions in `~/.proto/.prototools` by default.
+
+## 0.25.2
+
+#### ⚙️ Internal
+
+- Updated dependencies.
+
+## 0.25.1
+
+#### 🐞 Fixes
+
+- Fixed `proto debug config` printing an invalid config structure.
+- Fixed `proto install` displaying the incorrect version labels.
+- Fixed `proto install` not always pinning a version on 1st install.
+
+## 0.25.0
+
+#### 🚀 Updates
+
+- Added Linux arm64 gnu and musl support (`aarch64-unknown-linux-gnu` and `aarch64-unknown-linux-musl`).
+- Added a `proto debug config` command, to debug all loaded configs and the final merged config.
+- Added a `PROTO_BYPASS_VERSION_CHECK` environment variable, to bypass loading and checking of versions. Useful when internet is unreliable.
+
+## 0.24.2
+
+#### 🚀 Updates
+
+- Deferred loading of the HTTP client until it's needed. This should improve execution times.
+
+#### 🐞 Fixes
+
+- Fixed an issue where `proto use` would install tools from `~/.proto/.prototools`.
+- Fixed an issue where our directory locking would fail on Windows when the inventory path was overwritten.
+- Fixed stable being considered a latest alias.
+
+#### ⚙️ Internal
+
+- Updated dependencies.
+
+## 0.24.1
+
+#### 🚀 Updates
+
+- Added an `--aliases` flag to `proto list` and `proto list-remote`.
+- Updated `proto tool list` to include remote aliases provided by the tool.
+- Updated `proto tool info` to include local configuration and installed versions.
+
+#### 🧩 Plugins
+
+- Updated `node_plugin` and `node_depman_plugin` to v0.6.1.
+
+## 0.24.0
+
+#### 💥 Breaking
+
+> To ease the migration process, we've added a new migrate command. Simply run `proto migrate v0.24` after upgrading proto!
+
+- Standardized configuration files.
+  - Merged `~/.proto/config.toml` functionality into `.prototools` under a new `[settings]` table. This means settings like `auto-clean` can be defined anywhere now.
+  - Removed `~/.proto/config.toml`. Use `~/.proto/.prototools` instead, which is now the new global config (via `--global` arg).
+  - Moved `node-intercept-globals` setting to `tools.node.intercept-globals`.
+- Reworked user configured aliases and default/global version.
+  - Moved values to `.prototools` (user managed) from `~/.proto/tools/<name>/manifest.json` (internally managed).
+  - Aliases are now stored in the `[tools.<name>]`, while the default version is at the root.
+    ```toml
+    node = "20.10.0"
+    [tools.node.aliases]
+    work = "^18"
+    ```
+- Updated `proto alias` and `proto unalias` to longer write to the global config by default. Now requires a `--global` flag.
+  - This change was made to align with `proto pin`, `proto tool add`, and `proto tool remove`.
+
+#### 🚀 Updates
+
+- Added a `proto migrate v0.24` command for migrating configs. We'll also log a warning if we detect the old configuration.
+  - For some scenarios, we'll attempt to auto-migrate under the hood when applicable.
+- Added support for defining configuration that can be passed to WASM plugins.
+  - Can be added to `.prototools` under a `[tools.<name>]` table.
+  - Moved Node.js specific settings into this new format.
+    ```toml
+    [tools.node]
+    bundled-npm = false
+    intercept-globals = false
+    ```
+- Updated non-latest plugins to be cached for 30 days, instead of forever.
+- Updated cleaning to also remove old proto versions from `~/.proto/tools/proto`.
+- WASM API
+  - Added a `get_tool_config` function. Can be typed with a serde compatible struct.
+  - Deprecated the `get_proto_user_config` function.
+
+#### 🐞 Fixes
+
+- Fixed an issue where resolving canary versions wouldn't work correctly.
+
+#### 🧩 Plugins
+
+- Updated `bun_plugin` to v0.6.
+- Updated `deno_plugin` to v0.6.
+- Updated `go_plugin` to v0.6.
+- Updated `node_plugin` and `node_depman_plugin` to v0.6.
+- Updated `python_plugin` to v0.4.
+- Updated `rust_plugin` to v0.5.
+- Updated `schema_plugin` (TOML) to v0.6.
+
 ## 0.23.8
 
 #### 🚀 Updates

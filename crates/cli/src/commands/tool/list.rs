@@ -1,15 +1,23 @@
 use crate::error::ProtoCliError;
-use crate::helpers::load_configured_tools_with_filters;
+use crate::helpers::ProtoResource;
 use crate::printer::Printer;
 use chrono::{DateTime, NaiveDateTime};
 use clap::Args;
 use miette::IntoDiagnostic;
-use proto_core::Id;
+use proto_core::{Id, ProtoToolConfig, ToolManifest, UnresolvedVersionSpec};
+use serde::Serialize;
 use starbase::system;
 use starbase_styles::color;
 use starbase_utils::json;
 use std::collections::{HashMap, HashSet};
+use tokio::sync::Mutex;
 use tracing::info;
+
+#[derive(Serialize)]
+pub struct ToolItem<'a> {
+    manifest: ToolManifest,
+    config: Option<&'a ProtoToolConfig>,
+}
 
 #[derive(Args, Clone, Debug)]
 pub struct ListToolsArgs {
@@ -21,12 +29,14 @@ pub struct ListToolsArgs {
 }
 
 #[system]
-pub async fn list(args: ArgsRef<ListToolsArgs>) {
+pub async fn list(args: ArgsRef<ListToolsArgs>, proto: ResourceRef<ProtoResource>) {
     if !args.json {
         info!("Loading tools...");
     }
 
-    let tools = load_configured_tools_with_filters(HashSet::from_iter(&args.ids)).await?;
+    let tools = proto
+        .load_tools_with_filters(HashSet::from_iter(&args.ids))
+        .await?;
 
     let mut tools = tools
         .into_iter()
@@ -39,10 +49,22 @@ pub async fn list(args: ArgsRef<ListToolsArgs>) {
         return Err(ProtoCliError::NoInstalledTools.into());
     }
 
+    let mut config = proto.env.load_config()?.to_owned();
+
     if args.json {
         let items = tools
             .into_iter()
-            .map(|t| (t.id, t.manifest))
+            .map(|t| {
+                let tool_config = config.tools.get(&t.id);
+
+                (
+                    t.id,
+                    ToolItem {
+                        manifest: t.manifest,
+                        config: tool_config,
+                    },
+                )
+            })
             .collect::<HashMap<_, _>>();
 
         println!("{}", json::to_string_pretty(&items).into_diagnostic()?);
@@ -50,9 +72,17 @@ pub async fn list(args: ArgsRef<ListToolsArgs>) {
         return Ok(());
     }
 
-    let mut printer = Printer::new();
+    let printer = Mutex::new(Printer::new());
+    let latest_version = UnresolvedVersionSpec::default();
 
     for tool in tools {
+        let tool_config = config.tools.remove(&tool.id).unwrap_or_default();
+
+        let mut versions = tool.load_version_resolver(&latest_version).await?;
+        versions.aliases.extend(tool_config.aliases);
+
+        let mut printer = printer.lock().await;
+
         printer.line();
         printer.header(&tool.id, &tool.metadata.name);
 
@@ -61,10 +91,10 @@ pub async fn list(args: ArgsRef<ListToolsArgs>) {
 
             p.entry_map(
                 "Aliases",
-                tool.manifest
+                versions
                     .aliases
                     .iter()
-                    .map(|(k, v)| (color::hash(v.to_string()), color::label(k)))
+                    .map(|(k, v)| (color::hash(v.to_string()), k))
                     .collect::<Vec<_>>(),
                 None,
             );
@@ -92,10 +122,9 @@ pub async fn list(args: ArgsRef<ListToolsArgs>) {
                             }
                         }
 
-                        if tool
-                            .manifest
-                            .default_version
-                            .as_ref()
+                        if config
+                            .versions
+                            .get(&tool.id)
                             .is_some_and(|dv| *dv == version.to_unresolved_spec())
                         {
                             comments.push("default version".into());
@@ -119,7 +148,7 @@ pub async fn list(args: ArgsRef<ListToolsArgs>) {
         })?;
     }
 
-    printer.flush();
+    printer.lock().await.flush();
 }
 
 fn create_datetime(millis: u128) -> Option<NaiveDateTime> {

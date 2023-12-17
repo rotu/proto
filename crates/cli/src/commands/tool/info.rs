@@ -1,7 +1,10 @@
+use crate::helpers::ProtoResource;
 use crate::printer::Printer;
 use clap::Args;
 use miette::IntoDiagnostic;
-use proto_core::{detect_version, load_tool, ExecutableLocation, Id, PluginLocator};
+use proto_core::{
+    detect_version, ExecutableLocation, Id, PluginLocator, ProtoToolConfig, ToolManifest,
+};
 use proto_pdk_api::ToolMetadataOutput;
 use serde::Serialize;
 use starbase::system;
@@ -12,11 +15,13 @@ use std::path::PathBuf;
 #[derive(Serialize)]
 pub struct ToolInfo {
     bins: Vec<ExecutableLocation>,
+    config: ProtoToolConfig,
     exe_path: PathBuf,
     globals_dir: Option<PathBuf>,
     globals_prefix: Option<String>,
     id: Id,
     inventory_dir: PathBuf,
+    manifest: ToolManifest,
     metadata: ToolMetadataOutput,
     name: String,
     plugin: PluginLocator,
@@ -33,17 +38,21 @@ pub struct ToolInfoArgs {
 }
 
 #[system]
-pub async fn info(args: ArgsRef<ToolInfoArgs>) {
-    let mut tool = load_tool(&args.id).await?;
+pub async fn info(args: ArgsRef<ToolInfoArgs>, proto: ResourceRef<ProtoResource>) {
+    let mut tool = proto.load_tool(&args.id).await?;
     let version = detect_version(&tool, None).await?;
 
     tool.resolve_version(&version, false).await?;
     tool.create_executables(false, false).await?;
     tool.locate_globals_dir().await?;
 
+    let mut config = proto.env.load_config()?.to_owned();
+    let tool_config = config.tools.remove(&tool.id).unwrap_or_default();
+
     if args.json {
         let info = ToolInfo {
             bins: tool.get_bin_locations()?,
+            config: tool_config,
             exe_path: tool.get_exe_path()?.to_path_buf(),
             globals_dir: tool.get_globals_bin_dir().map(|p| p.to_path_buf()),
             globals_prefix: tool.get_globals_prefix().map(|p| p.to_owned()),
@@ -51,6 +60,7 @@ pub async fn info(args: ArgsRef<ToolInfoArgs>) {
             shims: tool.get_shim_locations()?,
             id: tool.id,
             name: tool.metadata.name.clone(),
+            manifest: tool.manifest,
             metadata: tool.metadata,
             plugin: tool.locator.unwrap(),
         };
@@ -111,8 +121,31 @@ pub async fn info(args: ArgsRef<ToolInfoArgs>) {
             Some(color::failure("None")),
         );
 
+        let mut versions = tool.manifest.installed_versions.iter().collect::<Vec<_>>();
+        versions.sort();
+
+        p.entry_list(
+            "Installed versions",
+            versions
+                .iter()
+                .map(|version| color::hash(version.to_string())),
+            Some(color::failure("None")),
+        );
+
         Ok(())
     })?;
+
+    // CONFIG
+
+    if !tool_config.config.is_empty() {
+        printer.named_section("Configuration", |p| {
+            for (key, value) in tool_config.config {
+                p.entry(key, value.to_string());
+            }
+
+            Ok(())
+        })?;
+    }
 
     // PLUGIN
 

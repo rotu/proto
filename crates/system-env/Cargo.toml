@@ -1,6 +1,6 @@
 [package]
 name = "system_env"
-version = "0.1.6"
+version = "0.1.8"
 edition = "2021"
 license = "MIT"
 description = "Information about the system environment: operating system, architecture, package manager, etc."
@@ -8,7 +8,7 @@ homepage = "https://moonrepo.dev/proto"
 repository = "https://github.com/moonrepo/proto"
 
 [dependencies]
-schematic = { workspace = true, optional = true }
+schematic = { workspace = true, optional = true, features = ["schema"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 shell-words = "1.1.0"

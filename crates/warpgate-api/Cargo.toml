@@ -1,6 +1,6 @@
 [package]
 name = "warpgate_api"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 license = "MIT"
 description = "APIs for working with Warpgate plugins."
@@ -8,4 +8,9 @@ homepage = "https://moonrepo.dev/proto"
 repository = "https://github.com/moonrepo/proto"
 
 [dependencies]
+schematic = { workspace = true, optional = true, features = ["schema"] }
 serde = { workspace = true }
+
+[features]
+default = []
+schematic = ["dep:schematic"]

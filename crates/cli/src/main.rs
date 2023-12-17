@@ -4,8 +4,9 @@ mod error;
 mod helpers;
 mod printer;
 mod shell;
+mod systems;
 
-use app::{App as CLI, Commands, ToolCommands};
+use app::{App as CLI, Commands, DebugCommands, ToolCommands};
 use clap::Parser;
 use starbase::{tracing::TracingOptions, App, MainResult};
 use starbase_utils::string_vec;
@@ -47,6 +48,9 @@ async fn main() -> MainResult {
     );
 
     let mut app = App::new();
+    app.startup(systems::detect_proto_env);
+    app.startup(systems::migrate_user_config);
+    app.analyze(systems::load_proto_configs);
 
     match cli.command {
         Commands::AddPlugin(args) => app.execute_with_args(commands::add_plugin_old, args),
@@ -54,6 +58,9 @@ async fn main() -> MainResult {
         Commands::Bin(args) => app.execute_with_args(commands::bin, args),
         Commands::Clean(args) => app.execute_with_args(commands::clean, args),
         Commands::Completions(args) => app.execute_with_args(commands::completions, args),
+        Commands::Debug { command } => match command {
+            DebugCommands::Config(args) => app.execute_with_args(commands::debug::config, args),
+        },
         Commands::Install(args) => app.execute_with_args(commands::install, args),
         Commands::InstallGlobal(args) => app.execute_with_args(commands::install_global, args),
         Commands::List(args) => app.execute_with_args(commands::list, args),

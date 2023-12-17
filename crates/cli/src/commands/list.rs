@@ -1,5 +1,6 @@
+use crate::helpers::ProtoResource;
 use clap::Args;
-use proto_core::{load_tool, Id};
+use proto_core::Id;
 use starbase::system;
 use std::process;
 use tracing::debug;
@@ -8,11 +9,14 @@ use tracing::debug;
 pub struct ListArgs {
     #[arg(required = true, help = "ID of tool")]
     id: Id,
+
+    #[arg(long, help = "Include local aliases in the output")]
+    aliases: bool,
 }
 
 #[system]
-pub async fn list(args: ArgsRef<ListArgs>) {
-    let tool = load_tool(&args.id).await?;
+pub async fn list(args: ArgsRef<ListArgs>, proto: ResourceRef<ProtoResource>) {
+    let tool = proto.load_tool(&args.id).await?;
 
     debug!(manifest = ?tool.manifest.path, "Using versions from manifest");
 
@@ -33,4 +37,22 @@ pub async fn list(args: ArgsRef<ListArgs>) {
             .collect::<Vec<_>>()
             .join("\n")
     );
+
+    if args.aliases {
+        let config = proto.env.load_config()?;
+
+        if let Some(tool_config) = config.tools.get(&tool.id) {
+            if !tool_config.aliases.is_empty() {
+                println!(
+                    "{}",
+                    tool_config
+                        .aliases
+                        .iter()
+                        .map(|(k, v)| format!("{k} -> {v}"))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                );
+            }
+        }
+    }
 }

@@ -1,10 +1,10 @@
 use super::clean::clean_plugins;
 use super::pin::{internal_pin, PinArgs};
-use crate::helpers::{create_progress_bar, disable_progress_bars};
+use crate::helpers::{create_progress_bar, disable_progress_bars, ProtoResource};
 use crate::shell;
 use clap::Args;
 use miette::IntoDiagnostic;
-use proto_core::{load_tool, Id, PinType, Tool, UnresolvedVersionSpec};
+use proto_core::{Id, PinType, Tool, UnresolvedVersionSpec};
 use proto_pdk_api::{InstallHook, SyncShellProfileInput, SyncShellProfileOutput};
 use starbase::{system, SystemResult};
 use starbase_styles::color;
@@ -46,37 +46,43 @@ async fn pin_version(
     initial_version: &UnresolvedVersionSpec,
     global: bool,
 ) -> SystemResult {
+    let config = tool.proto.load_config()?;
     let mut args = PinArgs {
         id: tool.id.clone(),
         spec: tool.get_resolved_version().to_unresolved_spec(),
         global: false,
     };
+    let mut pin = false;
 
-    // via `--pin` arg
-    if global {
+    // via `--pin` arg, or the first time being installed
+    if global || !config.versions.contains_key(&tool.id) {
         args.global = true;
-
-        return internal_pin(tool, &args, true).await;
+        pin = true;
     }
 
     // via `pin-latest` setting
     if initial_version.is_latest() {
-        let user_config = tool.proto.load_user_config()?;
-
-        if let Some(pin_type) = user_config.pin_latest {
+        if let Some(pin_type) = &config.settings.pin_latest {
             args.global = matches!(pin_type, PinType::Global);
-
-            return internal_pin(tool, &args, true).await;
+            pin = true;
         }
+    }
+
+    if pin {
+        return internal_pin(tool, &args, true).await;
     }
 
     Ok(())
 }
 
-pub async fn internal_install(args: InstallArgs, tool: Option<Tool>) -> miette::Result<Tool> {
+pub async fn internal_install(
+    proto: &ProtoResource,
+    args: InstallArgs,
+    tool: Option<Tool>,
+) -> miette::Result<Tool> {
     let mut tool = match tool {
         Some(tool) => tool,
-        None => load_tool(&args.id).await?,
+        None => proto.load_tool(&args.id).await?,
     };
 
     let version = if args.canary {
@@ -88,6 +94,14 @@ pub async fn internal_install(args: InstallArgs, tool: Option<Tool>) -> miette::
     // Disable version caching and always use the latest when installing
     tool.disable_caching();
 
+    if tool.disable_progress_bars() {
+        disable_progress_bars();
+    }
+
+    // Resolve version first so subsequent steps can reference the resolved version
+    tool.resolve_version(&version, false).await?;
+
+    // Check if already installed, or if canary, overwrite previous install
     if !version.is_canary() && tool.is_setup(&version).await? {
         pin_version(&mut tool, &version, args.pin).await?;
 
@@ -98,10 +112,6 @@ pub async fn internal_install(args: InstallArgs, tool: Option<Tool>) -> miette::
         );
 
         return Ok(tool);
-    }
-
-    if tool.disable_progress_bars() {
-        disable_progress_bars();
     }
 
     let resolved_version = tool.get_resolved_version();
@@ -122,12 +132,17 @@ pub async fn internal_install(args: InstallArgs, tool: Option<Tool>) -> miette::
     })?;
 
     // Install the tool
-    debug!("Installing {} with version {}", tool.get_name(), version);
+    debug!(
+        "Installing {} with version {} (from {})",
+        tool.get_name(),
+        resolved_version,
+        version
+    );
 
     let pb = create_progress_bar(format!(
         "Installing {} {}",
         tool.get_name(),
-        tool.get_resolved_version()
+        resolved_version
     ));
 
     let installed = tool.setup(&version, false).await?;
@@ -159,7 +174,7 @@ pub async fn internal_install(args: InstallArgs, tool: Option<Tool>) -> miette::
     // Clean plugins
     debug!("Auto-cleaning plugins");
 
-    clean_plugins(7).await?;
+    clean_plugins(proto, 7).await?;
 
     Ok(tool)
 }
@@ -216,6 +231,6 @@ fn update_shell(tool: &Tool, passthrough_args: Vec<String>) -> miette::Result<()
 }
 
 #[system]
-pub async fn install(args: ArgsRef<InstallArgs>) {
-    internal_install(args.to_owned(), None).await?;
+pub async fn install(args: ArgsRef<InstallArgs>, proto: ResourceRef<ProtoResource>) {
+    internal_install(proto, args.to_owned(), None).await?;
 }

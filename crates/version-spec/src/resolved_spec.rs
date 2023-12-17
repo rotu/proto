@@ -46,10 +46,10 @@ impl VersionSpec {
         }
     }
 
-    /// Return true if the current specification is the "latest" or "stable" alias.
+    /// Return true if the current specification is the "latest" alias.
     pub fn is_latest(&self) -> bool {
         match self {
-            Self::Alias(alias) => alias == "latest" || alias == "stable",
+            Self::Alias(alias) => alias == "latest",
             _ => false,
         }
     }
@@ -61,6 +61,13 @@ impl VersionSpec {
             Self::Alias(alias) => UnresolvedVersionSpec::Alias(alias.to_owned()),
             Self::Version(version) => UnresolvedVersionSpec::Version(version.to_owned()),
         }
+    }
+}
+
+#[cfg(feature = "schematic")]
+impl schematic::Schematic for VersionSpec {
+    fn generate_schema() -> schematic::SchemaType {
+        schematic::SchemaType::string()
     }
 }
 
