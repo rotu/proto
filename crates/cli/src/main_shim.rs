@@ -3,15 +3,13 @@
 // not pull in large libraries (tracing is already enough)!
 
 use anyhow::{anyhow, Result};
+use cargo_util::ProcessBuilder;
 use rust_json::{json_parse, JsonElem as Json};
-use shared_child::SharedChild;
 use starbase::tracing::{self, trace, TracingOptions};
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::sync::Arc;
-use std::{env, fs, process};
+use std::{env, fs};
 
 fn get_proto_home() -> Result<PathBuf> {
     if let Ok(root) = env::var("PROTO_HOME") {
@@ -67,7 +65,11 @@ fn get_proto_binary(proto_home_dir: &Path, shim_exe_path: &Path) -> PathBuf {
     PathBuf::from(bin_name)
 }
 
-fn create_command(args: Vec<OsString>, shim_name: &str, shim_exe_path: &Path) -> Result<Command> {
+fn create_command(
+    args: Vec<OsString>,
+    shim_name: &str,
+    shim_exe_path: &Path,
+) -> Result<ProcessBuilder> {
     let proto_home_dir = get_proto_home()?;
     let registry_path = proto_home_dir.join("shims").join("registry.json");
     let mut shim = Json::Object(HashMap::default());
@@ -121,21 +123,21 @@ fn create_command(args: Vec<OsString>, shim_name: &str, shim_exe_path: &Path) ->
     // command.arg("--version");
 
     // Create the command and handle alternate logic
-    let mut command = Command::new(get_proto_binary(&proto_home_dir, shim_exe_path));
+    let mut command = ProcessBuilder::new(get_proto_binary(&proto_home_dir, shim_exe_path));
 
     if let Json::Str(parent_name) = &shim["parent"] {
-        command.args(["run", parent_name]);
+        command.args(&["run", parent_name]);
 
         if matches!(shim["alt_bin"], Json::Bool(true)) {
-            command.args(["--alt", shim_name]);
+            command.args(&["--alt", shim_name]);
         }
     } else {
-        command.args(["run", shim_name]);
+        command.args(&["run", shim_name]);
     }
 
     if !passthrough_args.is_empty() {
         command.arg("--");
-        command.args(passthrough_args);
+        command.args(&passthrough_args);
     }
 
     if let Json::Object(env_vars) = &shim["env_vars"] {
@@ -184,28 +186,12 @@ pub fn main() -> Result<()> {
     let mut command = create_command(args, &shim_name, &exe_path)?;
     command.env("PROTO_LOG", log_level);
 
-    // Spawn a shareable child process
     trace!(
         shim = &shim_name,
         proto_bin = ?command.get_program(),
-        "Spawning proto child process"
+        "Executing proto process"
     );
+    let exec_outcome = command.exec_replace();
 
-    let shared_child = SharedChild::spawn(&mut command)?;
-    let child = Arc::new(shared_child);
-    let child_clone = Arc::clone(&child);
-
-    // Handle CTRL+C and kill the child
-    ctrlc::set_handler(move || {
-        trace!("Received ctrl + c, killing child process");
-        let _ = child_clone.kill();
-    })?;
-
-    // Wait for the process to finish or be killed
-    let status = child.wait()?;
-    let code = status.code().unwrap_or(1);
-
-    trace!(shim = &shim_name, code, "Received exit code");
-
-    process::exit(code);
+    Err(anyhow!(exec_outcome.unwrap_err()))
 }
