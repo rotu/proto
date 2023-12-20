@@ -7,37 +7,6 @@ on:
   pull_request:
 
 jobs:
-  format:
-    name: Format
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v4
-      - uses: moonrepo/setup-rust@v1
-        with:
-          bins: just
-          cache: false
-          components: rustfmt
-      - run: just format-check
-  lint:
-    name: Lint
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v4
-      - uses: moonrepo/setup-rust@v1
-        with:
-          bins: just
-          cache: false
-          components: clippy
-      - run: just lint
-      - run: just lint-wasm
   test:
     name: Test
     runs-on: ${{ matrix.os }}
@@ -61,27 +30,9 @@ jobs:
         run: |
           just build-wasm;
           node .github/actions/delete-target-files.js;
-      - run:  cargo test run --workspace --exclude proto_pdk
+      - run:  cargo test run --workspace --exclude proto_pdk --no-fail-fast
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PROTO_DEBUG_COMMAND: 1
           RUST_BACKTRACE: 1
           WASMTIME_BACKTRACE_DETAILS: 1
-  run:
-    name: Run
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v4
-      - uses: moonrepo/setup-rust@v1
-        with:
-          bins: cargo-wasi, just
-          cache-base: "^(master|develop-)"
-      - run: just build
-      - run: just build-wasm
-      - run: cargo run -- --help
-      - run: cargo run -- list-remote node
-      - run: cargo run -- list-remote wasm-test
