@@ -4,8 +4,6 @@ name: CI
 
 on:
   push:
-    branches:
-      - master
   pull_request:
 
 jobs:
@@ -63,7 +61,7 @@ jobs:
         run: |
           just build-wasm;
           node .github/actions/delete-target-files.js;
-      - run: just test-ci
+      - run:  cargo test run --workspace --exclude proto_pdk --profile ci
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PROTO_DEBUG_COMMAND: 1
