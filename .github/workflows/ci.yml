@@ -61,7 +61,7 @@ jobs:
         run: |
           just build-wasm;
           node .github/actions/delete-target-files.js;
-      - run:  cargo test run --workspace --exclude proto_pdk --profile ci
+      - run:  cargo test run --workspace --exclude proto_pdk -- --nocapture
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PROTO_DEBUG_COMMAND: 1
