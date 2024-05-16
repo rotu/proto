@@ -87,3 +87,38 @@ jobs:
       - run: cargo run -- --help
       - run: cargo run -- list-remote node
       - run: cargo run -- list-remote wasm-test
+  build:
+    name: Upload build
+    runs-on: ${{ matrix.host }}
+    strategy:
+      matrix:
+        include:
+        - target: aarch64-unknown-linux-gnu
+          host: ubuntu-latest
+        - target: x86_64-unknown-linux-gnu
+          host: ubuntu-latest
+        - target: x86_64-apple-darwin
+          host: macos-latest
+        - target: aarch64-apple-darwin
+          host: macos-latest
+        - target: x86_64-pc-windows-msvc
+          host: windows-latest
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - if: ${{matrix.target == 'aarch64-unknown-linux-gnu'}}
+        run: sudo apt-get install gcc-aarch64-linux-gnu
+      - uses: moonrepo/setup-rust@v1
+        with:
+          targets: ${{ matrix.target }}
+          cache-target: release
+      - run: rustup target list --installed
+      - run: rustup target add ${{ matrix.target }}
+      - run: rustup target list --installed
+      - run:
+          cargo install --root artifacts --path ./crates/cli --target ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: artifacts
+          retention-days: 7
